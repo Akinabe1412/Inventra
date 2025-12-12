@@ -1,7 +1,7 @@
 // server/routes/dashboard.js
 const express = require('express');
 const router = express.Router();
-const { promisePool } = require('../config/db');
+const { pool } = require('../config/db');
 
 // GET dashboard summary (frontend expects this at /api/dashboard/summary)
 router.get('/summary', async (req, res) => {

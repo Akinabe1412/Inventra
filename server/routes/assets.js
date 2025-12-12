@@ -1,7 +1,7 @@
 // server/routes/assets.js
 const express = require('express');
 const router = express.Router();
-const { promisePool } = require('../config/db');
+const { pool } = require('../config/db');
 
 // GET all assets
 router.get('/', async (req, res) => {

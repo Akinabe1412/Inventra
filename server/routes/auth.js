@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { check, validationResult } = require('express-validator');
-const { promisePool } = require('../config/db');
+const { pool } = require('../config/db');
 
 // Validation middleware
 const validateRegister = [

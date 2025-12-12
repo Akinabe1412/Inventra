@@ -1,7 +1,7 @@
 // server/routes/categories.js
 const express = require('express');
 const router = express.Router();
-const { promisePool } = require('../config/db');
+const { pool } = require('../config/db');
 
 // GET all categories
 router.get('/', async (req, res) => {

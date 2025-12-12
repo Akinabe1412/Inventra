@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { promisePool } = require('../config/db');
+const { pool } = require('../config/db');
 const { body, validationResult } = require('express-validator');
 
 // GET all items with advanced filtering
@@ -22,6 +22,7 @@ router.get('/', async (req, res) => {
       FROM items i 
       LEFT JOIN categories c ON i.category_id = c.id 
       WHERE i.status != 'inactive'
+      GROUP BY stock_status
     `;
     
     const params = [];
