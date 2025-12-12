@@ -1,55 +1,66 @@
-// server/routes/dashboard.js
+// routes/dashboard.js - COMPLETE FIXED VERSION
 const express = require('express');
 const router = express.Router();
-const { pool } = require('../config/db');
+const { pool } = require('../config/db');  // Use pool, not promisePool
 
-// GET dashboard summary (frontend expects this at /api/dashboard/summary)
+// GET dashboard summary
 router.get('/summary', async (req, res) => {
   try {
     console.log('📊 Fetching dashboard summary...');
     
-    // Get total items
-    const [itemsResult] = await promisePool.query('SELECT COUNT(*) as total_items FROM items');
+    // Get all stats in one query (optimized)
+    const [stats] = await pool.query(`
+      SELECT 
+        COUNT(*) as total_items,
+        SUM(CASE WHEN quantity > 0 AND quantity <= min_quantity THEN 1 ELSE 0 END) as low_stock,
+        SUM(CASE WHEN quantity = 0 THEN 1 ELSE 0 END) as out_of_stock,
+        COALESCE(SUM(price * quantity), 0) as total_value,
+        COALESCE(AVG(CASE WHEN price > 0 THEN price END), 0) as avg_price,
+        COUNT(DISTINCT category_id) as categories_count
+      FROM items 
+      WHERE status != 'inactive'
+    `);
     
-    // Get low stock items
-    const [lowStockResult] = await promisePool.query(
-      'SELECT COUNT(*) as low_stock FROM items WHERE quantity > 0 AND quantity <= min_quantity'
-    );
+    // Get recent items
+    const [recentItems] = await pool.query(`
+      SELECT i.*, c.name as category_name 
+      FROM items i 
+      LEFT JOIN categories c ON i.category_id = c.id 
+      WHERE i.status != 'inactive'
+      ORDER BY i.created_at DESC 
+      LIMIT 5
+    `);
     
-    // Get out of stock items
-    const [outOfStockResult] = await promisePool.query(
-      'SELECT COUNT(*) as out_of_stock FROM items WHERE quantity = 0'
-    );
+    // Get category distribution
+    const [categories] = await pool.query(`
+      SELECT 
+        c.name,
+        COUNT(i.id) as item_count,
+        COALESCE(SUM(i.price * i.quantity), 0) as total_value
+      FROM categories c
+      LEFT JOIN items i ON c.id = i.category_id AND i.status != 'inactive'
+      GROUP BY c.id, c.name
+      ORDER BY item_count DESC
+      LIMIT 5
+    `);
     
-    // Get total value
-    const [totalValueResult] = await promisePool.query(
-      'SELECT SUM(quantity * COALESCE(price, 0)) as total_value FROM items'
-    );
-    
-    // Get average price
-    const [avgPriceResult] = await promisePool.query(
-      'SELECT AVG(price) as avg_price FROM items WHERE price IS NOT NULL AND price > 0'
-    );
-    
-    const stats = {
-      total_items: itemsResult[0].total_items || 0,
-      low_stock: lowStockResult[0].low_stock || 0,
-      out_of_stock: outOfStockResult[0].out_of_stock || 0,
-      total_value: totalValueResult[0].total_value || 0,
-      avg_price: avgPriceResult[0].avg_price || 0
-    };
-    
-    console.log('✅ Dashboard stats:', stats);
+    console.log('✅ Dashboard stats fetched successfully');
     
     res.json({
       success: true,
-      data: stats
+      data: {
+        ...stats[0],
+        recent_items: recentItems,
+        top_categories: categories,
+        timestamp: new Date().toISOString()
+      }
     });
   } catch (error) {
     console.error('❌ Error fetching dashboard stats:', error);
     res.status(500).json({ 
       success: false, 
-      error: 'Failed to fetch dashboard statistics'
+      error: 'Failed to fetch dashboard statistics',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

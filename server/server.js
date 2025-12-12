@@ -23,6 +23,10 @@ const assetRoutes = require('./routes/assets');
 const categoryRoutes = require('./routes/categories');
 const dashboardRoutes = require('./routes/dashboard');
 const reportRoutes = require('./routes/reports');
+const transactionRoutes = require('./routes/transactions');
+const emailRoutes = require('./routes/email');
+const settingsRoutes = require('./routes/settings');
+const backupRoutes = require('./routes/backup');
 
 // Use routes
 app.use('/api/auth', authRoutes);
@@ -31,23 +35,28 @@ app.use('/api/assets', assetRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/transactions', transactionRoutes);
+app.use('/api/email', emailRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/backup', backupRoutes);
 
-// Health check
-app.get('/api/health', (req, res) => {
-  pool.query('SELECT 1', (err) => {
-    if (err) {
-      return res.status(500).json({ 
-        status: 'ERROR', 
-        message: 'Database connection failed',
-        error: err.message 
-      });
-    }
+// Health check route
+app.get('/api/health', async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
     res.json({ 
-      status: 'OK', 
-      message: 'Server is running',
-      timestamp: new Date().toISOString()
+      status: 'ok', 
+      timestamp: new Date(),
+      database: 'connected'
     });
-  });
+  } catch (err) {
+    res.status(500).json({ 
+      error: {
+        message: 'Database connection failed',
+        details: err.message
+      }
+    });
+  }
 });
 
 // Serve frontend

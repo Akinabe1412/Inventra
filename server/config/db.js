@@ -1,4 +1,4 @@
-// config/db.js - SIMPLER VERSION
+// config/db.js - CORRECTED VERSION
 const mysql = require('mysql2/promise');  // Use promise version directly
 
 const pool = mysql.createPool({
@@ -11,7 +11,7 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-// Test connection
+// Test connection and fix SQL mode
 (async () => {
   try {
     const connection = await pool.getConnection();
@@ -19,7 +19,7 @@ const pool = mysql.createPool({
     
     // Fix SQL mode
     await connection.query("SET SESSION sql_mode=(SELECT REPLACE(@@sql_mode,'ONLY_FULL_GROUP_BY',''))");
-    console.log('✅ SQL mode adjusted');
+    console.log('✅ SQL mode adjusted (only_full_group_by disabled)');
     
     connection.release();
   } catch (err) {

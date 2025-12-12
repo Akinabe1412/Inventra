@@ -30,7 +30,7 @@ router.post('/register', validateRegister, async (req, res) => {
     const { email, password, full_name, role = 'user' } = req.body;
 
     // Check if user exists
-    const [existingUsers] = await pool.query(
+    const [existingUsers] = await promisePool.query(
       'SELECT id FROM users WHERE email = ?',
       [email]
     );
@@ -46,7 +46,7 @@ router.post('/register', validateRegister, async (req, res) => {
     const passwordHash = await bcrypt.hash(password, salt);
 
     // Create user
-    const [result] = await pool.query(
+    const [result] = await promisePool.query(
       'INSERT INTO users (email, password_hash, full_name, role) VALUES (?, ?, ?, ?)',
       [email, passwordHash, full_name, role]
     );
@@ -92,7 +92,7 @@ router.post('/login', validateLogin, async (req, res) => {
     const { email, password } = req.body;
 
     // Find user
-    const [users] = await pool.query(
+    const [users] = await promisePool.query(
       'SELECT * FROM users WHERE email = ?',
       [email]
     );
@@ -149,7 +149,7 @@ router.get('/me', async (req, res) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    const [users] = await pool.query(
+    const [users] = await promisePool.query(
       'SELECT id, email, full_name, role, created_at FROM users WHERE id = ?',
       [decoded.userId]
     );
@@ -167,5 +167,3 @@ router.get('/me', async (req, res) => {
 });
 
 module.exports = router;
-
-

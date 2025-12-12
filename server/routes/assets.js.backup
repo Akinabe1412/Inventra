@@ -6,7 +6,7 @@ const { pool } = require('../config/db');
 // GET all assets
 router.get('/', async (req, res) => {
   try {
-    const [assets] = await pool.query(`
+    const [assets] = await promisePool.query(`
       SELECT a.*, i.name as item_name, u.full_name as assigned_to_name 
       FROM assets a 
       LEFT JOIN items i ON a.item_id = i.id 
@@ -30,7 +30,7 @@ router.get('/', async (req, res) => {
 // GET single asset by ID
 router.get('/:id', async (req, res) => {
   try {
-    const [assets] = await pool.query(
+    const [assets] = await promisePool.query(
       `SELECT a.*, i.name as item_name, u.full_name as assigned_to_name 
        FROM assets a 
        LEFT JOIN items i ON a.item_id = i.id 
@@ -71,7 +71,7 @@ router.post('/', async (req, res) => {
       });
     }
     
-    const [result] = await pool.query(
+    const [result] = await promisePool.query(
       `INSERT INTO assets (item_id, asset_tag, serial_number, status, assigned_to, purchase_date, warranty_expiry, notes) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [item_id || null, asset_tag, serial_number || null, status || 'available', assigned_to || null, 
@@ -79,7 +79,7 @@ router.post('/', async (req, res) => {
     );
     
     // Get the newly created asset
-    const [newAsset] = await pool.query(
+    const [newAsset] = await promisePool.query(
       `SELECT a.*, i.name as item_name, u.full_name as assigned_to_name 
        FROM assets a 
        LEFT JOIN items i ON a.item_id = i.id 
@@ -129,10 +129,10 @@ router.put('/:id', async (req, res) => {
     values.push(id);
     
     const query = `UPDATE assets SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
-    await pool.query(query, values);
+    await promisePool.query(query, values);
     
     // Get updated asset
-    const [updatedAsset] = await pool.query(
+    const [updatedAsset] = await promisePool.query(
       `SELECT a.*, i.name as item_name, u.full_name as assigned_to_name 
        FROM assets a 
        LEFT JOIN items i ON a.item_id = i.id 
@@ -160,7 +160,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
-    const [result] = await pool.query(
+    const [result] = await promisePool.query(
       'DELETE FROM assets WHERE id = ?',
       [id]
     );
@@ -185,25 +185,4 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-router.get('/stats', async (req, res) => {
-  try {
-    const [stats] = await pool.query(`
-      SELECT 
-        COUNT(*) as total,
-        SUM(CASE WHEN status = 'assigned' THEN 1 ELSE 0 END) as assigned,
-        SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) as available,
-        SUM(CASE WHEN status = 'maintenance' THEN 1 ELSE 0 END) as maintenance,
-        SUM(CASE WHEN status = 'retired' THEN 1 ELSE 0 END) as retired
-      FROM assets
-    `);
-    
-    res.json({ success: true, data: stats[0] || {} });
-  } catch (error) {
-    console.error('Error fetching asset stats:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch asset statistics' });
-  }
-});
-
 module.exports = router;
-
-

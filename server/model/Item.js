@@ -1,4 +1,4 @@
-const { promisePool } = require('../config/db');
+const { pool } = require('../config/db');
 
 class Item {
   static async findAll() {

@@ -6,7 +6,7 @@ const { pool } = require('../config/db');
 // GET all categories
 router.get('/', async (req, res) => {
   try {
-    const [categories] = await pool.query('SELECT * FROM categories ORDER BY name');
+    const [categories] = await promisePool.query('SELECT * FROM categories ORDER BY name');
     res.json({
       success: true,
       data: categories
@@ -32,13 +32,13 @@ router.post('/', async (req, res) => {
       });
     }
     
-    const [result] = await pool.query(
+    const [result] = await promisePool.query(
       'INSERT INTO categories (name, description) VALUES (?, ?)',
       [name, description || '']
     );
     
     // Get the newly created category
-    const [newCategory] = await pool.query(
+    const [newCategory] = await promisePool.query(
       'SELECT * FROM categories WHERE id = ?',
       [result.insertId]
     );
@@ -58,5 +58,3 @@ router.post('/', async (req, res) => {
 });
 
 module.exports = router;
-
-
