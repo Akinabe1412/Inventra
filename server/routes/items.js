@@ -345,4 +345,31 @@ router.get('/stats/summary', async (req, res) => {
   }
 });
 
+// GET items with limit for dashboard
+router.get('/dashboard/recent', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 5;
+    
+    const [items] = await promisePool.query(`
+      SELECT i.*, c.name as category_name 
+      FROM items i 
+      LEFT JOIN categories c ON i.category_id = c.id 
+      WHERE i.status != 'inactive'
+      ORDER BY i.created_at DESC 
+      LIMIT ?
+    `, [limit]);
+    
+    res.json({
+      success: true,
+      data: items
+    });
+  } catch (error) {
+    console.error('Error fetching recent items:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to fetch recent items'
+    });
+  }
+});
+
 module.exports = router;

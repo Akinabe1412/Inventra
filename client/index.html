@@ -1298,193 +1298,196 @@
         });
         
         // ==================== DASHBOARD VIEW ====================
-        async function loadDashboard() {
-            try {
-                showLoading(true);
-                
-                // Load dashboard stats
-                const [statsData, itemsData, assetsData] = await Promise.all([
-                    apiRequest('/items/stats/summary'),
-                    apiRequest('/items?limit=5'),
-                    apiRequest('/assets')
-                ]);
-                
-                const stats = statsData.data;
-                const recentItems = itemsData.data;
-                const recentAssets = assetsData.data || [];
-                
-                // Create dashboard HTML
-                contentArea.innerHTML = `
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <h3>Total Items</h3>
-                            <div class="stat-value">${stats.total_items || 0}</div>
-                            <div class="stat-change">
-                                <i class="fas fa-box"></i>
-                                <span>In inventory</span>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card in-stock">
-                            <h3>Total Value</h3>
-                            <div class="stat-value">$${stats.total_value ? parseFloat(stats.total_value).toFixed(2) : '0.00'}</div>
-                            <div class="stat-change">
-                                <i class="fas fa-dollar-sign"></i>
-                                <span>Inventory worth</span>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card low-stock">
-                            <h3>Low Stock</h3>
-                            <div class="stat-value">${stats.low_stock || 0}</div>
-                            <div class="stat-change">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                <span>Needs attention</span>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card out-stock">
-                            <h3>Out of Stock</h3>
-                            <div class="stat-value">${stats.out_of_stock || 0}</div>
-                            <div class="stat-change">
-                                <i class="fas fa-times"></i>
-                                <span>Need reorder</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="charts-grid">
-                        <div class="chart-card">
-                            <h3>Inventory Overview</h3>
-                            <div class="chart-container">
-                                <canvas id="inventoryChart"></canvas>
-                            </div>
-                        </div>
-                        
-                        <div class="chart-card">
-                            <h3>Stock Status</h3>
-                            <div class="chart-container">
-                                <canvas id="stockChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="data-table">
-                        <div class="table-header">
-                            <h2>Recent Inventory Items</h2>
-                            <button class="btn btn-primary" onclick="loadView('inventory')">
-                                <i class="fas fa-eye"></i> View All
-                            </button>
-                        </div>
-                        
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Category</th>
-                                    <th>Quantity</th>
-                                    <th>Status</th>
-                                    <th>Location</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="recentItemsTable">
-                                ${recentItems.length > 0 ? recentItems.map(item => `
-                                    <tr>
-                                        <td><strong>${item.name}</strong></td>
-                                        <td>${item.category_name || 'Uncategorized'}</td>
-                                        <td>${item.quantity}</td>
-                                        <td>
-                                            <span class="status-badge status-${getStockStatus(item.quantity, item.min_quantity)}">
-                                                ${getStockStatusText(item.quantity, item.min_quantity)}
-                                            </span>
-                                        </td>
-                                        <td>${item.location || 'N/A'}</td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button class="btn-action edit" onclick="editItem(${item.id})">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                <button class="btn-action view" onclick="viewItem(${item.id})">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                `).join('') : `
-                                    <tr>
-                                        <td colspan="6" style="text-align: center; padding: 30px; color: var(--gray);">
-                                            <i class="fas fa-box-open" style="font-size: 48px; margin-bottom: 15px; display: block;"></i>
-                                            <p>No items found. Add your first inventory item!</p>
-                                        </td>
-                                    </tr>
-                                `}
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-                
-                // Create charts
-                createInventoryChart(stats);
-                createStockChart(stats);
-                
-            } catch (error) {
-                console.error('Error loading dashboard:', error);
-                contentArea.innerHTML = '<p class="alert alert-error">Error loading dashboard data</p>';
-            } finally {
-                showLoading(false);
-            }
-        }
+async function loadDashboard() {
+  try {
+    showLoading(true);
+    
+    console.log('📊 Loading dashboard...');
+    
+    // Try to load dashboard stats - use /dashboard/summary
+    const statsData = await apiRequest('/dashboard/summary');
+    console.log('📈 Stats data:', statsData);
+    
+    const stats = statsData.data;
+    
+    // Try to load recent items
+    let recentItems = [];
+    try {
+      const itemsData = await apiRequest('/items?limit=5');
+      recentItems = itemsData.data || [];
+      console.log('📦 Recent items:', recentItems);
+    } catch (itemsError) {
+      console.warn('Could not load recent items:', itemsError);
+      // Continue without recent items
+    }
+    
+    // Try to load assets
+    let recentAssets = [];
+    try {
+      const assetsData = await apiRequest('/assets');
+      recentAssets = assetsData.data || [];
+      console.log('💼 Assets:', recentAssets);
+    } catch (assetsError) {
+      console.warn('Could not load assets:', assetsError);
+      // Continue without assets
+    }
+    
+    // Create dashboard HTML
+    contentArea.innerHTML = `
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h3>Total Items</h3>
+          <div class="stat-value">${stats.total_items || 0}</div>
+          <div class="stat-change">
+            <i class="fas fa-box"></i>
+            <span>In inventory</span>
+          </div>
+        </div>
         
-        function getStockStatus(quantity, minQuantity = 5) {
-            if (quantity === 0) return 'out';
-            if (quantity <= minQuantity) return 'low';
-            return 'active';
-        }
+        <div class="stat-card in-stock">
+          <h3>Total Value</h3>
+          <div class="stat-value">$${stats.total_value ? parseFloat(stats.total_value).toFixed(2) : '0.00'}</div>
+          <div class="stat-change">
+            <i class="fas fa-dollar-sign"></i>
+            <span>Inventory worth</span>
+          </div>
+        </div>
         
-        function getStockStatusText(quantity, minQuantity = 5) {
-            if (quantity === 0) return 'Out of Stock';
-            if (quantity <= minQuantity) return 'Low Stock';
-            return 'In Stock';
-        }
+        <div class="stat-card low-stock">
+          <h3>Low Stock</h3>
+          <div class="stat-value">${stats.low_stock || 0}</div>
+          <div class="stat-change">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>Needs attention</span>
+          </div>
+        </div>
         
-        function createInventoryChart(stats) {
-            const ctx = document.getElementById('inventoryChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['Total Items', 'Total Value', 'Avg Price'],
-                    datasets: [{
-                        label: 'Inventory Metrics',
-                        data: [
-                            stats.total_items || 0,
-                            stats.total_value ? parseFloat(stats.total_value) / 1000 : 0,
-                            stats.avg_price || 0
-                        ],
-                        backgroundColor: [
-                            'rgba(67, 97, 238, 0.7)',
-                            'rgba(46, 196, 182, 0.7)',
-                            'rgba(255, 159, 28, 0.7)'
-                        ],
-                        borderColor: [
-                            'rgba(67, 97, 238, 1)',
-                            'rgba(46, 196, 182, 1)',
-                            'rgba(255, 159, 28, 1)'
-                        ],
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
-                    }
-                }
-            });
-        }
+        <div class="stat-card out-stock">
+          <h3>Out of Stock</h3>
+          <div class="stat-value">${stats.out_of_stock || 0}</div>
+          <div class="stat-change">
+            <i class="fas fa-times"></i>
+            <span>Need reorder</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>Inventory Overview</h3>
+          <div class="chart-container">
+            <canvas id="inventoryChart"></canvas>
+          </div>
+        </div>
+        
+        <div class="chart-card">
+          <h3>Stock Status</h3>
+          <div class="chart-container">
+            <canvas id="stockChart"></canvas>
+          </div>
+        </div>
+      </div>
+      
+      <div class="data-table">
+        <div class="table-header">
+          <h2>Recent Inventory Items</h2>
+          <button class="btn btn-primary" onclick="loadView('inventory')">
+            <i class="fas fa-eye"></i> View All
+          </button>
+        </div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Category</th>
+              <th>Quantity</th>
+              <th>Status</th>
+              <th>Location</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="recentItemsTable">
+            ${recentItems.length > 0 ? recentItems.map(item => `
+              <tr>
+                <td><strong>${item.name}</strong></td>
+                <td>${item.category_name || 'Uncategorized'}</td>
+                <td>${item.quantity}</td>
+                <td>
+                  <span class="status-badge status-${getStockStatus(item.quantity, item.min_quantity)}">
+                    ${getStockStatusText(item.quantity, item.min_quantity)}
+                  </span>
+                </td>
+                <td>${item.location || 'N/A'}</td>
+                <td>
+                  <div class="action-buttons">
+                    <button class="btn-action edit" onclick="editItem(${item.id})">
+                      <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-action view" onclick="viewItem(${item.id})">
+                      <i class="fas fa-eye"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            `).join('') : `
+              <tr>
+                <td colspan="6" style="text-align: center; padding: 30px; color: var(--gray);">
+                  <i class="fas fa-box-open" style="font-size: 48px; margin-bottom: 15px; display: block;"></i>
+                  <p>No items found. Add your first inventory item!</p>
+                </td>
+              </tr>
+            `}
+          </tbody>
+        </table>
+      </div>
+    `;
+    
+    // Create charts if we have data
+    if (stats) {
+      createInventoryChart(stats);
+      createStockChart(stats);
+    }
+    
+  } catch (error) {
+    console.error('❌ Error loading dashboard:', error);
+    
+    // Show helpful error message with debugging info
+    contentArea.innerHTML = `
+      <div class="alert alert-error">
+        <i class="fas fa-exclamation-triangle"></i>
+        <div>
+          <strong>Error loading dashboard data</strong>
+          <p style="margin-top: 5px; font-size: 14px;">${error.message || 'Unknown error'}</p>
+          <div style="margin-top: 15px;">
+            <button class="btn btn-primary" onclick="loadDashboard()">
+              <i class="fas fa-redo"></i> Try Again
+            </button>
+            <button class="btn btn-info" onclick="checkAPIConnection()" style="margin-left: 10px;">
+              <i class="fas fa-wifi"></i> Check API Connection
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  } finally {
+    showLoading(false);
+  }
+}
+
+// Add this helper function
+async function checkAPIConnection() {
+  try {
+    showLoading(true);
+    const response = await fetch(`${API_BASE}/health`);
+    const data = await response.json();
+    alert(`API Status: ${data.status}\nMessage: ${data.message}`);
+  } catch (error) {
+    alert(`Cannot connect to API:\n${error.message}`);
+  } finally {
+    showLoading(false);
+  }
+}
         
         function createStockChart(stats) {
             const ctx = document.getElementById('stockChart').getContext('2d');
@@ -1854,6 +1857,1085 @@
             });
         });
         
+        // ==================== ASSET TRACKING VIEW ====================
+async function loadAssets() {
+    try {
+        showLoading(true);
+        
+        // Load assets and items for dropdown
+        const [assetsData, itemsData] = await Promise.all([
+            apiRequest('/assets'),
+            apiRequest('/items')
+        ]);
+        
+        const assets = assetsData || [];
+        const items = itemsData.data || [];
+        
+        // Populate item dropdown in asset modal
+        const itemSelect = document.getElementById('assetItem');
+        if (itemSelect) {
+            itemSelect.innerHTML = '<option value="">Select Item</option>' +
+                items.map(item => `<option value="${item.id}">${item.name} (ID: ${item.id})</option>`).join('');
+        }
+        
+        contentArea.innerHTML = `
+            <div class="filters-bar">
+                <div class="filter-group">
+                    <label class="form-label">Search</label>
+                    <input type="text" id="assetSearch" class="form-control" placeholder="Search assets...">
+                </div>
+                
+                <div class="filter-group">
+                    <label class="form-label">Status</label>
+                    <select id="assetStatusFilter" class="form-control">
+                        <option value="all">All Status</option>
+                        <option value="available">Available</option>
+                        <option value="assigned">Assigned</option>
+                        <option value="maintenance">Maintenance</option>
+                        <option value="retired">Retired</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <button class="btn btn-primary" onclick="applyAssetFilters()">
+                        <i class="fas fa-filter"></i> Apply Filters
+                    </button>
+                    <button class="btn btn-danger" onclick="resetAssetFilters()" style="margin-top: 5px;">
+                        <i class="fas fa-redo"></i> Reset
+                    </button>
+                </div>
+            </div>
+            
+            <div class="data-table">
+                <div class="table-header">
+                    <h2>Assets (${assets.length} assets)</h2>
+                    <div class="table-actions">
+                        <button class="btn btn-primary" onclick="openAssetModal()">
+                            <i class="fas fa-plus"></i> Add Asset
+                        </button>
+                        <button class="btn btn-success" onclick="exportAssets()">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Asset Tag</th>
+                            <th>Serial Number</th>
+                            <th>Item</th>
+                            <th>Status</th>
+                            <th>Assigned To</th>
+                            <th>Purchase Date</th>
+                            <th>Warranty Expiry</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="assetsTable">
+                        ${assets.length > 0 ? assets.map(asset => `
+                            <tr>
+                                <td><strong>${asset.asset_tag}</strong></td>
+                                <td>${asset.serial_number || 'N/A'}</td>
+                                <td>${asset.item_name || 'N/A'}</td>
+                                <td>
+                                    <span class="status-badge status-${asset.status}">
+                                        ${asset.status.charAt(0).toUpperCase() + asset.status.slice(1)}
+                                    </span>
+                                </td>
+                                <td>${asset.assigned_to_name || 'N/A'}</td>
+                                <td>${asset.purchase_date ? new Date(asset.purchase_date).toLocaleDateString() : 'N/A'}</td>
+                                <td>${asset.warranty_expiry ? new Date(asset.warranty_expiry).toLocaleDateString() : 'N/A'}</td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="btn-action edit" onclick="editAsset(${asset.id})">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </button>
+                                        <button class="btn-action delete" onclick="deleteAsset(${asset.id})">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join('') : `
+                            <tr>
+                                <td colspan="8" style="text-align: center; padding: 40px; color: var(--gray);">
+                                    <i class="fas fa-laptop" style="font-size: 48px; margin-bottom: 15px; display: block;"></i>
+                                    <p>No assets found. Add your first asset!</p>
+                                </td>
+                            </tr>
+                        `}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        // Add event listener to search
+        document.getElementById('assetSearch')?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') applyAssetFilters();
+        });
+        
+    } catch (error) {
+        console.error('Error loading assets:', error);
+        contentArea.innerHTML = '<p class="alert alert-error">Error loading assets data</p>';
+    } finally {
+        showLoading(false);
+    }
+}
+
+function applyAssetFilters() {
+    const search = document.getElementById('assetSearch')?.value || '';
+    const status = document.getElementById('assetStatusFilter')?.value || 'all';
+    
+    // In a real implementation, you would call the API with filters
+    // For now, we'll just show an alert
+    alert(`Filters applied:\nSearch: ${search}\nStatus: ${status}\n\nAPI endpoint would be: /assets?search=${search}&status=${status}`);
+}
+
+function resetAssetFilters() {
+    document.getElementById('assetSearch').value = '';
+    document.getElementById('assetStatusFilter').value = 'all';
+    loadAssets();
+}
+
+function openAssetModal(assetId = null) {
+    editingAssetId = assetId;
+    const modal = document.getElementById('assetModal');
+    const title = document.getElementById('assetModalTitle');
+    const form = document.getElementById('assetForm');
+    
+    if (assetId) {
+        title.textContent = 'Edit Asset';
+        // Load asset data
+        apiRequest(`/assets/${assetId}`).then(data => {
+            const asset = data.data;
+            document.getElementById('assetTag').value = asset.asset_tag;
+            document.getElementById('assetSerial').value = asset.serial_number || '';
+            document.getElementById('assetItem').value = asset.item_id || '';
+            document.getElementById('assetStatus').value = asset.status;
+            document.getElementById('assetPurchaseDate').value = asset.purchase_date || '';
+            document.getElementById('assetWarranty').value = asset.warranty_expiry || '';
+            document.getElementById('assetAssignedTo').value = asset.assigned_to || '';
+            document.getElementById('assetNotes').value = asset.notes || '';
+        });
+    } else {
+        title.textContent = 'Add New Asset';
+        form.reset();
+    }
+    
+    modal.style.display = 'flex';
+}
+
+function closeAssetModal() {
+    document.getElementById('assetModal').style.display = 'none';
+    editingAssetId = null;
+}
+
+// Asset form submission
+document.getElementById('assetForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = {
+        asset_tag: document.getElementById('assetTag').value,
+        serial_number: document.getElementById('assetSerial').value,
+        item_id: document.getElementById('assetItem').value || null,
+        status: document.getElementById('assetStatus').value,
+        purchase_date: document.getElementById('assetPurchaseDate').value || null,
+        warranty_expiry: document.getElementById('assetWarranty').value || null,
+        assigned_to: document.getElementById('assetAssignedTo').value || null,
+        notes: document.getElementById('assetNotes').value
+    };
+    
+    try {
+        showLoading(true);
+        
+        if (editingAssetId) {
+            await apiRequest(`/assets/${editingAssetId}`, {
+                method: 'PUT',
+                body: JSON.stringify(formData)
+            });
+            showAlert('Asset updated successfully!', 'success');
+        } else {
+            await apiRequest('/assets', {
+                method: 'POST',
+                body: JSON.stringify(formData)
+            });
+            showAlert('Asset added successfully!', 'success');
+        }
+        
+        closeAssetModal();
+        loadAssets(); // Refresh the list
+        
+    } catch (error) {
+        // Error handled by apiRequest
+    } finally {
+        showLoading(false);
+    }
+});
+
+async function editAsset(id) {
+    openAssetModal(id);
+}
+
+async function deleteAsset(id) {
+    if (!confirm('Are you sure you want to delete this asset?')) return;
+    
+    try {
+        showLoading(true);
+        await apiRequest(`/assets/${id}`, {
+            method: 'DELETE'
+        });
+        
+        showAlert('Asset deleted successfully!', 'success');
+        loadAssets(); // Refresh the list
+        
+    } catch (error) {
+        // Error handled by apiRequest
+    } finally {
+        showLoading(false);
+    }
+}
+
+function exportAssets() {
+    window.open(`${API_BASE}/reports/export/assets?format=csv`, '_blank');
+}
+
+// Modal close buttons for asset modal
+document.getElementById('closeAssetModal').addEventListener('click', closeAssetModal);
+document.getElementById('cancelAssetBtn').addEventListener('click', closeAssetModal);
+
+// ==================== REPORTS VIEW ====================
+async function loadReports() {
+    try {
+        showLoading(true);
+        
+        // Load report data
+        const [inventoryStats, assetStats, recentTransactions] = await Promise.all([
+            apiRequest('/items/stats/summary'),
+            apiRequest('/assets/stats'),
+            apiRequest('/transactions/recent')
+        ]);
+        
+        contentArea.innerHTML = `
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Inventory Value</h3>
+                    <div class="stat-value">$${inventoryStats.data?.total_value ? parseFloat(inventoryStats.data.total_value).toFixed(2) : '0.00'}</div>
+                    <div class="stat-change">
+                        <i class="fas fa-dollar-sign"></i>
+                        <span>Total worth</span>
+                    </div>
+                </div>
+                
+                <div class="stat-card in-stock">
+                    <h3>Total Items</h3>
+                    <div class="stat-value">${inventoryStats.data?.total_items || 0}</div>
+                    <div class="stat-change">
+                        <i class="fas fa-box"></i>
+                        <span>In system</span>
+                    </div>
+                </div>
+                
+                <div class="stat-card low-stock">
+                    <h3>Total Assets</h3>
+                    <div class="stat-value">${assetStats?.total || 0}</div>
+                    <div class="stat-change">
+                        <i class="fas fa-laptop"></i>
+                        <span>Tracked assets</span>
+                    </div>
+                </div>
+                
+                <div class="stat-card out-stock">
+                    <h3>Low Stock Items</h3>
+                    <div class="stat-value">${inventoryStats.data?.low_stock || 0}</div>
+                    <div class="stat-change">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Needs attention</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3>Monthly Inventory Trends</h3>
+                    <div class="chart-container">
+                        <canvas id="monthlyChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-card">
+                    <h3>Asset Status Distribution</h3>
+                    <div class="chart-container">
+                        <canvas id="assetStatusChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="data-table">
+                <div class="table-header">
+                    <h2>Recent Transactions</h2>
+                    <div class="table-actions">
+                        <button class="btn btn-primary" onclick="generateReport('inventory')">
+                            <i class="fas fa-file-pdf"></i> Inventory Report
+                        </button>
+                        <button class="btn btn-success" onclick="generateReport('assets')">
+                            <i class="fas fa-file-excel"></i> Assets Report
+                        </button>
+                    </div>
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Item</th>
+                            <th>Type</th>
+                            <th>Quantity Change</th>
+                            <th>Previous Qty</th>
+                            <th>New Qty</th>
+                            <th>User</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactionsTable">
+                        ${recentTransactions?.length > 0 ? recentTransactions.map(tx => `
+                            <tr>
+                                <td>${new Date(tx.created_at).toLocaleDateString()}</td>
+                                <td>${tx.item_name || 'N/A'}</td>
+                                <td>
+                                    <span class="status-badge ${tx.type === 'check_in' ? 'status-active' : 'status-assigned'}">
+                                        ${tx.type.replace('_', ' ').toUpperCase()}
+                                    </span>
+                                </td>
+                                <td class="${tx.quantity_change > 0 ? 'text-success' : 'text-danger'}">
+                                    ${tx.quantity_change > 0 ? '+' : ''}${tx.quantity_change}
+                                </td>
+                                <td>${tx.previous_quantity}</td>
+                                <td>${tx.new_quantity}</td>
+                                <td>${tx.user_name || 'System'}</td>
+                            </tr>
+                        `).join('') : `
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 40px; color: var(--gray);">
+                                    <i class="fas fa-exchange-alt" style="font-size: 48px; margin-bottom: 15px; display: block;"></i>
+                                    <p>No transactions found</p>
+                                </td>
+                            </tr>
+                        `}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="data-table" style="margin-top: 30px;">
+                <div class="table-header">
+                    <h2>Export Reports</h2>
+                </div>
+                
+                <div style="padding: 20px;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Report Type</label>
+                            <select id="reportType" class="form-control">
+                                <option value="inventory">Inventory Report</option>
+                                <option value="assets">Assets Report</option>
+                                <option value="transactions">Transactions Report</option>
+                                <option value="low_stock">Low Stock Report</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Format</label>
+                            <select id="reportFormat" class="form-control">
+                                <option value="csv">CSV</option>
+                                <option value="pdf">PDF</option>
+                                <option value="excel">Excel</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Date Range</label>
+                            <select id="reportDateRange" class="form-control">
+                                <option value="all">All Time</option>
+                                <option value="today">Today</option>
+                                <option value="week">This Week</option>
+                                <option value="month">This Month</option>
+                                <option value="year">This Year</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button class="btn btn-primary" onclick="generateCustomReport()">
+                            <i class="fas fa-download"></i> Generate & Download Report
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Create charts
+        createMonthlyChart();
+        createAssetStatusChart(assetStats);
+        
+    } catch (error) {
+        console.error('Error loading reports:', error);
+        contentArea.innerHTML = '<p class="alert alert-error">Error loading reports data</p>';
+    } finally {
+        showLoading(false);
+    }
+}
+
+function createMonthlyChart() {
+    const ctx = document.getElementById('monthlyChart').getContext('2d');
+    // Mock data - replace with real API data
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
+            datasets: [{
+                label: 'Items Added',
+                data: [12, 19, 3, 5, 2, 3, 15],
+                borderColor: 'rgba(67, 97, 238, 1)',
+                backgroundColor: 'rgba(67, 97, 238, 0.1)',
+                tension: 0.4
+            }, {
+                label: 'Assets Added',
+                data: [5, 10, 8, 12, 6, 9, 7],
+                borderColor: 'rgba(46, 196, 182, 1)',
+                backgroundColor: 'rgba(46, 196, 182, 0.1)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function createAssetStatusChart(assetStats) {
+    const ctx = document.getElementById('assetStatusChart').getContext('2d');
+    // Mock data - replace with real API data
+    new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ['Available', 'Assigned', 'Maintenance', 'Retired'],
+            datasets: [{
+                data: [25, 40, 10, 5],
+                backgroundColor: [
+                    'rgba(46, 196, 182, 0.7)',
+                    'rgba(67, 97, 238, 0.7)',
+                    'rgba(255, 159, 28, 0.7)',
+                    'rgba(128, 128, 128, 0.7)'
+                ],
+                borderColor: [
+                    'rgba(46, 196, 182, 1)',
+                    'rgba(67, 97, 238, 1)',
+                    'rgba(255, 159, 28, 1)',
+                    'rgba(128, 128, 128, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+function generateReport(type) {
+    alert(`Generating ${type} report...\nThis would download a ${type === 'inventory' ? 'PDF' : 'Excel'} file in a real implementation.`);
+}
+
+function generateCustomReport() {
+    const type = document.getElementById('reportType').value;
+    const format = document.getElementById('reportFormat').value;
+    const dateRange = document.getElementById('reportDateRange').value;
+    
+    alert(`Generating custom report:\nType: ${type}\nFormat: ${format}\nDate Range: ${dateRange}\n\nThis would download the report in a real implementation.`);
+}
+
+// ==================== EMAIL NOTIFICATIONS VIEW ====================
+async function loadEmailNotifications() {
+    try {
+        showLoading(true);
+        
+        // Load email templates and logs
+        const [templatesData, logsData] = await Promise.all([
+            apiRequest('/email/templates'),
+            apiRequest('/email/logs')
+        ]);
+        
+        const templates = templatesData || [];
+        const logs = logsData || [];
+        
+        contentArea.innerHTML = `
+            <div class="data-table">
+                <div class="table-header">
+                    <h2>Email Templates</h2>
+                    <div class="table-actions">
+                        <button class="btn btn-primary" onclick="createEmailTemplate()">
+                            <i class="fas fa-plus"></i> New Template
+                        </button>
+                    </div>
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Subject</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="templatesTable">
+                        ${templates.length > 0 ? templates.map(template => `
+                            <tr>
+                                <td><strong>${template.name}</strong></td>
+                                <td>
+                                    <span class="status-badge ${template.type === 'low_stock' ? 'status-low' : 'status-available'}">
+                                        ${template.type.replace('_', ' ').toUpperCase()}
+                                    </span>
+                                </td>
+                                <td>${template.subject}</td>
+                                <td>
+                                    <span class="status-badge ${template.is_active ? 'status-active' : 'status-out'}">
+                                        ${template.is_active ? 'Active' : 'Inactive'}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="btn-action edit" onclick="editTemplate(${template.id})">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </button>
+                                        <button class="btn-action view" onclick="viewTemplate(${template.id})">
+                                            <i class="fas fa-eye"></i> View
+                                        </button>
+                                        <button class="btn-action delete" onclick="deleteTemplate(${template.id})">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join('') : `
+                            <tr>
+                                <td colspan="5" style="text-align: center; padding: 40px; color: var(--gray);">
+                                    <i class="fas fa-envelope" style="font-size: 48px; margin-bottom: 15px; display: block;"></i>
+                                    <p>No email templates found. Create your first template!</p>
+                                </td>
+                            </tr>
+                        `}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="data-table" style="margin-top: 30px;">
+                <div class="table-header">
+                    <h2>Send Email Notification</h2>
+                    <div class="table-actions">
+                        <button class="btn btn-primary" onclick="openEmailModal()">
+                            <i class="fas fa-paper-plane"></i> Send Email
+                        </button>
+                    </div>
+                </div>
+                
+                <div style="padding: 20px;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Select Template</label>
+                            <select id="templateSelect" class="form-control" onchange="loadTemplate(this.value)">
+                                <option value="">Custom Email</option>
+                                ${templates.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Recipients (comma separated)</label>
+                            <input type="text" id="recipients" class="form-control" placeholder="email1@example.com, email2@example.com">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Subject</label>
+                        <input type="text" id="emailSubjectInput" class="form-control" placeholder="Email subject">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Message</label>
+                        <textarea id="emailMessage" class="form-control" rows="6" placeholder="Email content..."></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button class="btn btn-primary" onclick="sendQuickEmail()">
+                            <i class="fas fa-paper-plane"></i> Send Quick Email
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="data-table" style="margin-top: 30px;">
+                <div class="table-header">
+                    <h2>Email History</h2>
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sent Date</th>
+                            <th>Recipient</th>
+                            <th>Subject</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="emailLogsTable">
+                        ${logs.length > 0 ? logs.map(log => `
+                            <tr>
+                                <td>${new Date(log.sent_at || log.created_at).toLocaleString()}</td>
+                                <td>${log.recipient_email}</td>
+                                <td>${log.subject}</td>
+                                <td>
+                                    <span class="status-badge ${log.status === 'sent' ? 'status-active' : log.status === 'failed' ? 'status-out' : 'status-low'}">
+                                        ${log.status.toUpperCase()}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="btn-action view" onclick="viewEmailLog(${log.id})">
+                                            <i class="fas fa-eye"></i> View
+                                        </button>
+                                        <button class="btn-action delete" onclick="resendEmail(${log.id})" ${log.status === 'sent' ? 'disabled' : ''}>
+                                            <i class="fas fa-redo"></i> Resend
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join('') : `
+                            <tr>
+                                <td colspan="5" style="text-align: center; padding: 40px; color: var(--gray);">
+                                    <i class="fas fa-history" style="font-size: 48px; margin-bottom: 15px; display: block;"></i>
+                                    <p>No email history found</p>
+                                </td>
+                            </tr>
+                        `}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('Error loading email notifications:', error);
+        contentArea.innerHTML = '<p class="alert alert-error">Error loading email notifications</p>';
+    } finally {
+        showLoading(false);
+    }
+}
+
+function loadTemplate(templateId) {
+    if (!templateId) return;
+    
+    apiRequest(`/email/templates/${templateId}`).then(data => {
+        const template = data.data;
+        document.getElementById('emailSubjectInput').value = template.subject;
+        document.getElementById('emailMessage').value = template.body;
+    });
+}
+
+function openEmailModal() {
+    document.getElementById('emailModal').style.display = 'flex';
+}
+
+function closeEmailModal() {
+    document.getElementById('emailModal').style.display = 'none';
+}
+
+function sendQuickEmail() {
+    const recipients = document.getElementById('recipients').value;
+    const subject = document.getElementById('emailSubjectInput').value;
+    const message = document.getElementById('emailMessage').value;
+    
+    if (!recipients || !subject || !message) {
+        showAlert('Please fill all required fields', 'error');
+        return;
+    }
+    
+    showLoading(true);
+    
+    apiRequest('/email/send', {
+        method: 'POST',
+        body: JSON.stringify({
+            recipients: recipients.split(',').map(email => email.trim()),
+            subject,
+            message
+        })
+    }).then(() => {
+        showAlert('Email sent successfully!', 'success');
+        document.getElementById('recipients').value = '';
+        document.getElementById('emailSubjectInput').value = '';
+        document.getElementById('emailMessage').value = '';
+        document.getElementById('templateSelect').value = '';
+        loadEmailNotifications();
+    }).catch(error => {
+        showAlert('Failed to send email: ' + error.message, 'error');
+    }).finally(() => {
+        showLoading(false);
+    });
+}
+
+// Email form submission
+document.getElementById('emailForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const to = document.getElementById('emailTo').value;
+    const subject = document.getElementById('emailSubject').value;
+    const body = document.getElementById('emailBody').value;
+    const template = document.getElementById('emailTemplate').value;
+    
+    try {
+        showLoading(true);
+        
+        await apiRequest('/email/send', {
+            method: 'POST',
+            body: JSON.stringify({
+                to: to.split(',').map(email => email.trim()),
+                subject,
+                body,
+                template
+            })
+        });
+        
+        showAlert('Email sent successfully!', 'success');
+        closeEmailModal();
+        
+    } catch (error) {
+        // Error handled by apiRequest
+    } finally {
+        showLoading(false);
+    }
+});
+
+// Modal close buttons for email modal
+document.getElementById('closeEmailModal').addEventListener('click', closeEmailModal);
+document.getElementById('cancelEmailBtn').addEventListener('click', closeEmailModal);
+
+// ==================== SETTINGS VIEW ====================
+async function loadSettings() {
+    try {
+        showLoading(true);
+        
+        contentArea.innerHTML = `
+            <div class="data-table">
+                <div class="table-header">
+                    <h2>System Settings</h2>
+                </div>
+                
+                <div style="padding: 20px;">
+                    <h3 style="margin-bottom: 20px; color: var(--dark);">General Settings</h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">System Name</label>
+                            <input type="text" id="systemName" class="form-control" value="InventoryPro">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Default Currency</label>
+                            <select id="currency" class="form-control">
+                                <option value="USD">US Dollar ($)</option>
+                                <option value="EUR">Euro (€)</option>
+                                <option value="GBP">British Pound (£)</option>
+                                <option value="JPY">Japanese Yen (¥)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Time Zone</label>
+                            <select id="timezone" class="form-control">
+                                <option value="UTC">UTC</option>
+                                <option value="EST">Eastern Time (EST)</option>
+                                <option value="PST">Pacific Time (PST)</option>
+                                <option value="GMT">GMT</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Date Format</label>
+                            <select id="dateFormat" class="form-control">
+                                <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                                <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                                <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <h3 style="margin: 30px 0 20px 0; color: var(--dark);">Email Settings</h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">SMTP Host</label>
+                            <input type="text" id="smtpHost" class="form-control" value="smtp.gmail.com">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">SMTP Port</label>
+                            <input type="number" id="smtpPort" class="form-control" value="587">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">SMTP Username</label>
+                            <input type="text" id="smtpUser" class="form-control" placeholder="your-email@gmail.com">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">SMTP Password</label>
+                            <input type="password" id="smtpPass" class="form-control" placeholder="Your password">
+                        </div>
+                    </div>
+                    
+                    <h3 style="margin: 30px 0 20px 0; color: var(--dark);">Notification Settings</h3>
+                    
+                    <div class="form-group">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                            <input type="checkbox" id="lowStockNotifications" checked>
+                            <label for="lowStockNotifications">Send low stock notifications</label>
+                        </div>
+                        
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                            <input type="checkbox" id="warrantyNotifications" checked>
+                            <label for="warrantyNotifications">Send warranty expiry notifications</label>
+                        </div>
+                        
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                            <input type="checkbox" id="dailyReports" checked>
+                            <label for="dailyReports">Send daily summary reports</label>
+                        </div>
+                    </div>
+                    
+                    <h3 style="margin: 30px 0 20px 0; color: var(--dark);">User Profile</h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Full Name</label>
+                            <input type="text" id="userFullName" class="form-control" value="${currentUser?.full_name || ''}">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Email</label>
+                            <input type="email" id="userEmail" class="form-control" value="${currentUser?.email || ''}" disabled>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">New Password</label>
+                            <input type="password" id="newPassword" class="form-control" placeholder="Leave blank to keep current">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Confirm Password</label>
+                            <input type="password" id="confirmPassword" class="form-control" placeholder="Confirm new password">
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions" style="margin-top: 30px;">
+                        <button class="btn btn-danger" onclick="resetSettings()">
+                            <i class="fas fa-redo"></i> Reset to Default
+                        </button>
+                        <button class="btn btn-primary" onclick="saveSettings()">
+                            <i class="fas fa-save"></i> Save Settings
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="data-table" style="margin-top: 30px;">
+                <div class="table-header">
+                    <h2>System Information</h2>
+                </div>
+                
+                <div style="padding: 20px;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">System Version</label>
+                            <input type="text" class="form-control" value="InventoryPro v1.0.0" disabled>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Database Version</label>
+                            <input type="text" class="form-control" value="MySQL 8.0" disabled>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Last Backup</label>
+                            <input type="text" class="form-control" value="${new Date().toLocaleDateString()} 00:00" disabled>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Next Backup</label>
+                            <input type="text" class="form-control" value="${new Date(Date.now() + 86400000).toLocaleDateString()} 00:00" disabled>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button class="btn btn-warning" onclick="backupDatabase()">
+                            <i class="fas fa-database"></i> Backup Now
+                        </button>
+                        <button class="btn btn-info" onclick="showSystemLogs()">
+                            <i class="fas fa-file-alt"></i> View System Logs
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('Error loading settings:', error);
+        contentArea.innerHTML = '<p class="alert alert-error">Error loading settings</p>';
+    } finally {
+        showLoading(false);
+    }
+}
+
+function saveSettings() {
+    const settings = {
+        systemName: document.getElementById('systemName').value,
+        currency: document.getElementById('currency').value,
+        timezone: document.getElementById('timezone').value,
+        dateFormat: document.getElementById('dateFormat').value,
+        smtpHost: document.getElementById('smtpHost').value,
+        smtpPort: document.getElementById('smtpPort').value,
+        smtpUser: document.getElementById('smtpUser').value,
+        smtpPass: document.getElementById('smtpPass').value,
+        lowStockNotifications: document.getElementById('lowStockNotifications').checked,
+        warrantyNotifications: document.getElementById('warrantyNotifications').checked,
+        dailyReports: document.getElementById('dailyReports').checked,
+        userFullName: document.getElementById('userFullName').value,
+        newPassword: document.getElementById('newPassword').value,
+        confirmPassword: document.getElementById('confirmPassword').value
+    };
+    
+    // Validate passwords if provided
+    if (settings.newPassword && settings.newPassword !== settings.confirmPassword) {
+        showAlert('Passwords do not match', 'error');
+        return;
+    }
+    
+    showLoading(true);
+    
+    // Save settings to API
+    apiRequest('/settings/save', {
+        method: 'POST',
+        body: JSON.stringify(settings)
+    }).then(() => {
+        showAlert('Settings saved successfully!', 'success');
+        // Update current user info if name changed
+        if (settings.userFullName !== currentUser?.full_name) {
+            currentUser.full_name = settings.userFullName;
+            const initials = currentUser.full_name
+                .split(' ')
+                .map(n => n[0])
+                .join('')
+                .toUpperCase()
+                .substring(0, 2);
+            userAvatar.textContent = initials;
+        }
+    }).catch(error => {
+        showAlert('Failed to save settings: ' + error.message, 'error');
+    }).finally(() => {
+        showLoading(false);
+    });
+}
+
+function resetSettings() {
+    if (confirm('Are you sure you want to reset all settings to default?')) {
+        showLoading(true);
+        
+        apiRequest('/settings/reset', {
+            method: 'POST'
+        }).then(() => {
+            showAlert('Settings reset to default!', 'success');
+            loadSettings(); // Reload the settings page
+        }).catch(error => {
+            showAlert('Failed to reset settings: ' + error.message, 'error');
+        }).finally(() => {
+            showLoading(false);
+        });
+    }
+}
+
+function backupDatabase() {
+    showLoading(true);
+    
+    apiRequest('/backup/create', {
+        method: 'POST'
+    }).then(() => {
+        showAlert('Database backup created successfully!', 'success');
+    }).catch(error => {
+        showAlert('Failed to create backup: ' + error.message, 'error');
+    }).finally(() => {
+        showLoading(false);
+    });
+}
+
+function showSystemLogs() {
+    alert('This would open a modal with system logs in a real implementation.');
+}
+
+// ==================== ADDITIONAL ROUTE HANDLERS ====================
+// Add these missing API endpoint handlers to server/routes/items.js
+
+// In server/routes/items.js, add these endpoints:
+
+// GET low stock items
+router.get('/low-stock', async (req, res) => {
+    try {
+        const [items] = await promisePool.query(`
+            SELECT i.*, c.name as category_name 
+            FROM items i 
+            LEFT JOIN categories c ON i.category_id = c.id 
+            WHERE i.quantity <= i.min_quantity AND i.quantity > 0
+            ORDER BY i.quantity ASC
+        `);
+        res.json({ success: true, data: items });
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Failed to fetch low stock items' });
+    }
+});
+
+// GET out of stock items
+router.get('/out-of-stock', async (req, res) => {
+    try {
+        const [items] = await promisePool.query(`
+            SELECT i.*, c.name as category_name 
+            FROM items i 
+            LEFT JOIN categories c ON i.category_id = c.id 
+            WHERE i.quantity = 0
+            ORDER BY i.name ASC
+        `);
+        res.json({ success: true, data: items });
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Failed to fetch out of stock items' });
+    }
+});
+
         // Note: Asset Tracking, Reports, Email Notifications functions
         // will be added in the next message due to character limits
         // This is already 95% of the complete system!
