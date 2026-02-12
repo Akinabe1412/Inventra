@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const auth = require('./middleware/auth');
 require('dotenv').config();
 
 const { pool } = require('./config/db');
@@ -30,15 +31,15 @@ const backupRoutes = require('./routes/backup');
 
 // Use routes
 app.use('/api/auth', authRoutes);
-app.use('/api/items', itemRoutes);
-app.use('/api/assets', assetRoutes);
-app.use('/api/categories', categoryRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/transactions', transactionRoutes);
-app.use('/api/email', emailRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/backup', backupRoutes);
+app.use('/api/items', auth, itemRoutes);
+app.use('/api/assets', auth, assetRoutes);
+app.use('/api/categories', auth, categoryRoutes);
+app.use('/api/dashboard', auth, dashboardRoutes);
+app.use('/api/reports', auth, reportRoutes);
+app.use('/api/transactions', auth, transactionRoutes);
+app.use('/api/email', auth, emailRoutes);
+app.use('/api/settings', auth, settingsRoutes);
+app.use('/api/backup', auth, backupRoutes);
 
 // Health check route
 app.get('/api/health', async (req, res) => {
